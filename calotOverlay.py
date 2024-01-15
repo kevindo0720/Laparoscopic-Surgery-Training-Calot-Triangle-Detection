@@ -10,6 +10,29 @@ def euclidean_distance(x1, y1, x2, y2):
     distance = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
     return distance
 
+def adapt_triangle_to_new_bbox(original_bbox, new_bbox, triangle_vertices):
+    # Flatten the triangle vertices array to get a list of (x, y) coordinates
+    flat_triangle = triangle_vertices.reshape(-1, 2)
+
+    # Calculate the scaling factors for width and height
+    scale_x = new_bbox[2] / original_bbox[2]
+    scale_y = 1.5 * (new_bbox[3] / original_bbox[3])  # Adjust the scaling factor for vertical expansion
+
+    # Scale the triangle vertices to match the new bounding box dimensions
+    scaled_triangle = (flat_triangle - np.array([original_bbox[0], original_bbox[1]])) * np.array([scale_x, scale_y]) + np.array([new_bbox[0], new_bbox[1]])
+
+    # Calculate the translation to ensure the top and bottom points touch the bounding box
+    translation_y_top = -np.min(scaled_triangle[:, 1]) + new_bbox[1]
+    translation_y_bottom = -np.max(scaled_triangle[:, 1]) + new_bbox[1] + new_bbox[3]
+
+    # Translate the scaled triangle along the y-axis
+    translated_triangle = scaled_triangle + np.array([0, translation_y_top])
+
+    # Reshape the translated triangle to the original format
+    adapted_triangle = translated_triangle.reshape(triangle_vertices.shape)
+
+    return adapted_triangle
+
 def quadrilateral_area(vertices):
     n = len(vertices)
     area = 0.5 * abs(sum(vertices[i][0]*vertices[(i+1)%n][1] - vertices[(i+1)%n][0]*vertices[i][1] for i in range(n)))
@@ -29,8 +52,8 @@ def findBbox(coordinates):
     max_x, max_y = np.max(flat_coordinates, axis=0)
 
     # Calculate width and height of the bounding box
-    width = math.ceil((max_x - min_x)*1.75)
-    height = math.ceil((max_y - min_y)*1.75)
+    width = math.ceil((max_x - min_x)*1.25)
+    height = math.ceil((max_y - min_y)*1.5)
     
     return [min_x,min_y,width,height]
 
@@ -57,7 +80,7 @@ def detectTriangleShapes(frame):
     
     # Define lower and upper bounds for the color yellow in HSV
     lower_yellow = np.array([0, 100, 100])
-    upper_yellow = np.array([20, 255, 255])
+    upper_yellow = np.array([10, 255, 255])
 
     # Create a mask for yellow regions
     yellow_mask = cv2.inRange(hsv_image, lower_yellow, upper_yellow)
@@ -106,7 +129,6 @@ def detectTriangleShapes(frame):
     
     filtered_contours_area_shapes = []
     areas = []
-    print(len(filtered_contours_triangle))
     for shape in filtered_contours_triangle:
         coords = []
         for vertex in shape:
@@ -136,7 +158,6 @@ def detectTriangleShapes(frame):
             areaShape = quadrilateral_area(coords)
         
         if areaShape >= seventypercentilearea and areaShape > 1000:
-            print("area" + str(areaShape))
             medianx,mediany = find_median(coords)
             coordsSelectedShapes.append([medianx,mediany])
             filtered_contours_area_shapes.append(shape)
@@ -209,7 +230,6 @@ def Overlay(frame):
             distanceMax = totalDistance
         index+=1
         
-    print(distanceMax)
     contourFinal = contours[bestshapeIndex]
 
     # cv2.drawContours(frameread, [contourFinal], -1, (0, 255, 0), cv2.FILLED)
@@ -219,7 +239,6 @@ def Overlay(frame):
     # Blend the mask with the original image
     result = cv2.addWeighted(frameread, 1, mask, 0.5, 0)
     
-    print(contourFinal)
     return result, contourFinal
     
     
@@ -246,63 +265,55 @@ def tracking(coordsBBox,frame):
  
 def main():
     cap = cv2.VideoCapture("IMG_5605.mov")
+    
+    # Set the output video file properties
+    output_file = "overlayed5605.mp4"
+    frame_width = int(cap.get(3))
+    frame_height = int(cap.get(4))
+    out = cv2.VideoWriter(output_file, cv2.VideoWriter_fourcc(*'mp4v'), 30, (frame_width, frame_height))
+
     count = 0
     while True:
-        # Read a frame from the video source
         ret, frame = cap.read()
-
-        # Check if the frame was successfully captured
         if not ret:
             break
 
-        if count <1 :
-        # Process the frame (add your image processing code here)
-        # For example, convert the frame to grayscale
-        #overlay run 3 times, then all b box
-            processed,contours = Overlay(frame)
+        if count < 1:
+            processed, contours = Overlay(frame)
             bboxContours = findBbox(contours)
-            cv2.imwrite("filled3.jpg",processed)
+            cv2.imwrite("filled3.jpg", processed)
             cv2.imshow('Original Frame', frame)
             bbox = bboxContours
             tracker = cv2.TrackerKCF_create()
             ok = tracker.init(frame, bbox)
-        
+            originalbbox = bbox
         else:
-    
-            # Start timer
             timer = cv2.getTickCount()
-    
-            # Update tracker
             ok, bbox = tracker.update(frame)
-    
-            # Calculate Frames per second (FPS)
-            fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer);
-    
-            # Draw bounding box
+            fps = cv2.getTickFrequency() / (cv2.getTickCount() - timer)
+
+            adaptedtriangles = adapt_triangle_to_new_bbox(originalbbox, bbox, contours)
+
+            mask = np.zeros_like(frame)
+            cv2.fillPoly(mask, [adaptedtriangles.astype(int)], color=(0, 255, 0, 240))
+            result = cv2.addWeighted(frame, 1, mask, 0.5, 0)
+
             if ok:
-                # Tracking success
                 p1 = (int(bbox[0]), int(bbox[1]))
                 p2 = (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3]))
-                cv2.rectangle(frame, p1, p2, (255,0,0), 2, 1)
-            else :
-                # Tracking failure
-                cv2.putText(frame, "Tracking failure detected", (100,80), cv2.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
-    
-            # Display result
-            cv2.imshow("Tracking", frame)
- 
+            else:
+                cv2.putText(result, "Tracking failure detected", (100, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2)
 
-        count+=1
-        
-        # Display the original and processed frames
-        
+            cv2.imshow("Tracking", result)
+            out.write(result)  # Write the processed frame to the output video
 
-        # Break the loop if 'q' key is pressed
+        count += 1
+
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
-    # Release the video capture object and close all windows
     cap.release()
+    out.release()  # Release the VideoWriter object
     cv2.destroyAllWindows()
 
 main()
