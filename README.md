@@ -1,0 +1,2 @@
+- During laparoscopic cholecystectomy (gallbladder removal), surgeons use **Calot's triangle** as a landmark to identify and dissect the cystic artery and cystic duct. Precise identification and dissection are essential to safely remove the gallbladder without damaging nearby structures like the common bile duct or hepatic artery.
+- This program leverages computer vision based techniques such as SURT, SIFT, particle filtering, to detect and track the calot triangle in a human cavity model constructed from real CT scans. 
