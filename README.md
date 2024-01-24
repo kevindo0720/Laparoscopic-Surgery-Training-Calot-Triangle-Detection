@@ -5,7 +5,7 @@
 - This program leverages computer vision based techniques such as SURT, SIFT, particle filtering, to detect and track the calot triangle in a human cavity model constructed from real CT scan.
 
 # DEMOS
-Pictures taken from live demos at SAVE conference at Stanford University's Goodman Surgical Education Center (January 2024)
+Pictures taken from live demos at SAVE conference @ Stanford University's Goodman Surgical Education Center (January 2024)
 
 ![demo1](demo1.jpg)
 
