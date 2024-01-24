@@ -1,4 +1,4 @@
-- Program was developed as a component of Laparascopic Surgery Training project (presented at Stanford Wellcome Leap program's annual SAVE (Surgery: assess, validate, expand) conference.
+- Program was developed as a component of VIS Lab @ Qualcomm Institute 's Laparascopic Surgery Training project (presented at Stanford Wellcome Leap program's annual SAVE (Surgery: assess, validate, expand) conference.
 
 # BACKGROUND
 - During laparoscopic cholecystectomy (gallbladder removal), surgeons use **Calot's triangle** as a landmark to identify and dissect the cystic artery and cystic duct. Precise identification and dissection are essential to safely remove the gallbladder without damaging nearby structures like the common bile duct or hepatic artery.
